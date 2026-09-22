@@ -4,9 +4,20 @@ from pathlib import Path
 from smartcard.CardMonitoring import CardMonitor, CardObserver
 from smartcard.Exceptions import CardConnectionException
 
+from set_wallpaper import set_wallpaper
+
 
 GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
 TAGS_FILE = Path("data/tags.json")
+
+CHARACTER_WALLPAPERS = {
+    "Twilight Sparkle": "MLP_Wallpaper/Twilight.png",
+    "Rainbow Dash": "MLP_Wallpaper/RainbowDash.png",
+    "Pinkie Pie": "MLP_Wallpaper/PinkiePie.png",
+    "Applejack": "MLP_Wallpaper/AppleJack.png",
+    "Rarity": "MLP_Wallpaper/Rarity.png",
+    "Fluttershy": "MLP_Wallpaper/Fluttershy.png",
+}
 
 
 def load_tags():
@@ -83,6 +94,12 @@ class TagObserver(CardObserver):
         if character is None:
             print(f"Unknown tag: {uid}")
         else:
+            print(f"Detected: {character}")
+
+            wallpaper = CHARACTER_WALLPAPERS.get(character)
+            if wallpaper is not None:
+                print(f"Setting wallpaper for {character}...")
+                set_wallpaper(wallpaper)
             print(f"Detected: {character}")
 
 
