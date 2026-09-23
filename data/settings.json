@@ -1,0 +1,17 @@
+{
+    "restore_on_remove": false,
+    "start_with_windows": true,
+    "sound_volume": 0.8,
+    "sound_cooldown": 1.0,
+    "sound_on_change_only": true,
+    "music_volume": 0.5,
+    "preview_seconds": 8,
+    "cursor_size": 5,
+    "dark_mode": true,
+    "setup_complete": true,
+    "hotkey_wheel": "Ctrl+Alt+Space",
+    "hotkey_next": "Ctrl+Alt+Right",
+    "hotkey_previous": "Ctrl+Alt+Left",
+    "hotkey_random": "Ctrl+Alt+R",
+    "wheel_collection": "All enabled packs"
+}

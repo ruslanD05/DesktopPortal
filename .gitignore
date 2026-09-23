@@ -4,3 +4,8 @@ __pycache__/
 .idea/
 .vscode/
 MLP_Wallpaper/
+data/desktop-state.json
+data/background.log
+data/music-cache/
+build/
+dist/

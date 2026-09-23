@@ -1,3 +1,51 @@
 # DesktopPortal
 
-A cross-platform toys-to-life desktop theming application using NFC tags.
+DesktopPortal activates wallpaper, cursors and a random sound from portable packs using NFC or the GUI.
+
+## Run
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
+```
+
+## Build the Windows application
+
+```powershell
+.\build_release.ps1
+```
+
+The build creates `dist\DesktopPortal\DesktopPortal.exe` and a portable
+`dist\DesktopPortal-Windows.zip`. Keep the files inside the application folder
+together so packs and settings remain editable. The same executable runs in
+the background when Windows starts it with `--background`.
+
+Select a pack and **Activate**, or choose **Bind tag** and scan within 30 seconds. Binding does not activate the pack; remove and rescan the tag. Unknown tags do nothing. Files selected from anywhere are copied into the pack. Cursor mappings expose all 15 Windows cursor states, show animated previews, mirror individual cursors horizontally or vertically, and can auto-detect a folder.
+
+The first-run wizard checks the NFC reader and sets the initial restore, startup and theme preferences. The pack list supports live name/ID search plus enabled/disabled filtering. Enable the dark theme in **Options**. In the pack editor, drag files or folders onto the drop area to import supported images, audio and recognizable cursor files.
+
+**Random wheel** opens a CS-style animated picker. It can use every enabled pack or only the enabled packs in one collection, remembers that collection, and activates the winner. The tray menu and configurable Windows global hotkeys can open the wheel or switch to the next, previous, or a random pack without NFC.
+
+Each pack can have looping background music from a local MP3/OGG/WAV file or a YouTube video/playlist URL. YouTube audio is downloaded on first use with `yt-dlp` and FFmpeg, then cached under `data/music-cache`; playlist activations choose a random entry. Background-music volume is separate from activation-sound volume in **Options**.
+
+**Preview** applies a pack temporarily without its sound, then returns to the prior pack. **Options** controls sound volume, cooldown, play-on-change behavior, preview duration and the Windows cursor-size scale. Wallpaper transitions remain instant because native desktop wallpaper APIs do not provide a reliable cross-desktop fade.
+
+**Export** creates a versioned ZIP containing the selected pack and its assets. **Import** safely renames a pack when its ID already exists. Collections can be exported as one bundle. **Validate** reports missing files, unsupported formats and cursor roles. **Clean assets** previews and removes files no longer referenced by a pack.
+
+Disable a pack to prevent manual and NFC activation. Collections appear as collapsible rows and can enable or disable all their packs together. A pack may appear in multiple collections.
+
+**Delete selected pack** is available under **More**. It confirms before removing the pack folder, tag bindings and collection memberships.
+
+Enable **Start DesktopPortal at login** to register an immediate Task Scheduler logon trigger. It launches `pythonw.exe` directly without a terminal or Windows' delayed startup-app queue. Closing the GUI hides it while the listener and tray icon continue running. Launch `main.py` again or use the tray to reopen it. The tray also pauses NFC detection, restores the desktop and quits. **Diagnostics** shows platform capabilities, reader state, present tags, recent activity and the background log.
+
+If PC/SC or the reader is unavailable at sign-in, DesktopPortal retries every three seconds. A snapshot in `data/desktop-state.json` allows the original wallpaper and cursors to be restored after a crash.
+
+## Linux foundation
+
+Pack, collection, NFC, sound, tray and GUI code is portable. GNOME, Cinnamon and Unity wallpaper changes use `gsettings`; KDE uses `plasma-apply-wallpaperimage`. Per-role `.ani`/`.cur` cursor mapping is a Windows feature and is skipped on Linux. Linux startup uses `~/.config/autostart/DesktopPortal.desktop`.
+
+## Checks
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
