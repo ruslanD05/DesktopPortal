@@ -1,6 +1,13 @@
 """PC/SC callbacks only enqueue events; the GUI owns application state."""
-from smartcard.CardMonitoring import CardMonitor, CardObserver
-from smartcard.Exceptions import CardConnectionException
+try:
+    from smartcard.CardMonitoring import CardMonitor, CardObserver
+    from smartcard.Exceptions import CardConnectionException
+except ImportError:
+    CardMonitor = None
+    CardObserver = object
+
+    class CardConnectionException(Exception):
+        pass
 
 GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
 
@@ -34,6 +41,8 @@ class TagObserver(CardObserver):
 
 
 def start_monitor(events):
+    if CardMonitor is None:
+        raise ImportError('NFC reader support requires pyscard.')
     monitor = CardMonitor()
     observer = TagObserver(events)
     monitor.addObserver(observer)

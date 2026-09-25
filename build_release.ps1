@@ -5,7 +5,12 @@ $Output = Join-Path $Root 'dist\DesktopPortal'
 
 & $Python -m PyInstaller --noconfirm --clean (Join-Path $Root 'DesktopPortal.spec')
 
-Copy-Item (Join-Path $Root 'packs') (Join-Path $Output 'packs') -Recurse -Force
+$Packs = Join-Path $Root 'packs'
+if (Test-Path $Packs) {
+    Copy-Item $Packs (Join-Path $Output 'packs') -Recurse -Force
+} else {
+    New-Item (Join-Path $Output 'packs') -ItemType Directory -Force | Out-Null
+}
 New-Item (Join-Path $Output 'data') -ItemType Directory -Force | Out-Null
 foreach ($Name in @('settings.json', 'collections.json', 'tags.json')) {
     $Source = Join-Path $Root "data\$Name"

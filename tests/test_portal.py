@@ -7,11 +7,11 @@ import socket
 
 import desktop
 import cursor_images
+import cursor_roles
 import hotkeys
 import main
 import packs
 import pack_tools
-import set_cursors
 import startup
 from random_wheel import ALL_PACKS, RandomWheel
 
@@ -31,6 +31,10 @@ class DesktopTests(unittest.TestCase):
             patcher = patch.object(desktop, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
+        backend = Mock(supports_cursors=True)
+        patcher = patch.object(desktop, '_BACKEND', backend)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.app = desktop.Desktop()
 
     def test_switch_and_restore_preserves_first_snapshot(self):
@@ -433,7 +437,7 @@ class CursorDiscoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             cursor = Path(directory) / 'Applejack -Normal-.ani'
             cursor.touch()
-            self.assertEqual(set_cursors.find_cursors(directory)['Arrow'], cursor.resolve())
+            self.assertEqual(cursor_roles.find_cursors(directory)['Arrow'], cursor.resolve())
 
 
 class HotkeyTests(unittest.TestCase):
@@ -553,8 +557,9 @@ class StartupTests(unittest.TestCase):
 
     @patch('startup._set_registry_startup')
     @patch('startup._set_scheduled_task')
+    @patch('startup.platform.system', return_value='Windows')
     def test_startup_uses_immediate_task_and_removes_old_launchers(
-        self, set_task, set_registry
+        self, system, set_task, set_registry
     ):
         with tempfile.TemporaryDirectory() as directory:
             launcher = Path(directory) / 'DesktopPortal.cmd'

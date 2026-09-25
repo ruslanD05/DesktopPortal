@@ -9,9 +9,28 @@ DesktopPortal activates wallpaper, cursors and a random sound from portable pack
 .\.venv\Scripts\python.exe main.py
 ```
 
+For a new Windows machine, clone the private repository and set up Python first:
+
+```powershell
+git clone https://github.com/ruslanD05/DesktopPortal.git
+cd DesktopPortal
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -q
+.\.venv\Scripts\python.exe main.py
+```
+
+Personal packs and their wallpapers, sounds and cursors are excluded from Git.
+Transfer the `packs` folder separately, or export packs on the original PC and
+import them in the app. A fresh clone starts without packs. Existing tag and
+collection entries do not become usable until their packs are transferred.
+Configure **Start DesktopPortal at login** on the new machine so its task points
+to that machine's application path.
+
 ## Build the Windows application
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
 .\build_release.ps1
 ```
 

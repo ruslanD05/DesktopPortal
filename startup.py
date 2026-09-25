@@ -25,12 +25,15 @@ STARTUP_APPROVED_RUN = (
 STARTUP_APPROVED_FOLDER = (
     r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'
 )
-STARTUP_DIRECTORY = (
-    Path(os.environ['APPDATA'])
-    / 'Microsoft/Windows/Start Menu/Programs/Startup'
-)
-STARTUP_FILE = STARTUP_DIRECTORY / 'DesktopPortal.cmd'
-LEGACY_STARTUP_FILE = STARTUP_DIRECTORY / 'DesktopPortal.vbs'
+if platform.system() == 'Windows':
+    STARTUP_DIRECTORY = (
+        Path(os.environ['APPDATA'])
+        / 'Microsoft/Windows/Start Menu/Programs/Startup'
+    )
+    STARTUP_FILE = STARTUP_DIRECTORY / 'DesktopPortal.cmd'
+    LEGACY_STARTUP_FILE = STARTUP_DIRECTORY / 'DesktopPortal.vbs'
+else:
+    STARTUP_DIRECTORY = STARTUP_FILE = LEGACY_STARTUP_FILE = None
 LINUX_AUTOSTART_FILE = Path.home() / '.config/autostart/DesktopPortal.desktop'
 
 
