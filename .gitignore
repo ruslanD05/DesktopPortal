@@ -9,3 +9,5 @@ data/background.log
 data/music-cache/
 build/
 dist/
+packs/
+.local-pack-backup/
