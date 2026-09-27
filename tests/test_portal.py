@@ -13,6 +13,7 @@ import main
 import packs
 import pack_tools
 import startup
+import shutdown_hooks
 from random_wheel import ALL_PACKS, RandomWheel
 
 
@@ -84,6 +85,19 @@ class DesktopTests(unittest.TestCase):
             self.app.activate('one', {'wallpapers': ['first.png', 'second.png']})
         desktop.set_wallpaper.assert_any_call(Path('second.png'))
 
+    def test_disabled_assets_are_excluded_from_rotation(self):
+        pack = {
+            'wallpapers': ['off.png', 'on.png'],
+            'sounds': ['off.mp3', 'on.mp3'],
+            'disabled_assets': {
+                'wallpapers': ['off.png'],
+                'sounds': ['off.mp3'],
+            },
+        }
+        self.app.activate('one', pack)
+        desktop.set_wallpaper.assert_any_call(Path('on.png'))
+        desktop.play_sound.assert_called_once_with(Path('on.mp3'), 0.8)
+
     def test_disabled_effects_are_not_applied(self):
         pack = {
             'wallpapers': ['new.png'],
@@ -98,15 +112,38 @@ class DesktopTests(unittest.TestCase):
         desktop.play_sound.assert_not_called()
 
     def test_pack_music_loops_and_stops_on_pack_change(self):
-        error_handler = Mock()
-        self.app.on_music_error = error_handler
         self.app.settings = {'music_volume': 0.35}
         self.app.activate('one', {'music': 'theme.mp3'})
-        desktop.play_music.assert_called_once_with(
-            Path('theme.mp3'), 0.35, error_handler,
-        )
+        desktop.play_music.assert_called_once_with(Path('theme.mp3'), 0.35)
         self.app.activate('two', {})
         self.assertGreaterEqual(desktop.stop_music.call_count, 1)
+
+
+class ShutdownTests(unittest.TestCase):
+    def test_previous_session_is_restored_automatically(self):
+        desktop_manager = Mock()
+        desktop_manager.original = {'wallpaper': 'original.png', 'cursors': {}}
+        message = main.recover_previous_desktop(desktop_manager)
+        desktop_manager.restore.assert_called_once_with()
+        self.assertIn('restored', message)
+
+    def test_system_shutdown_restore_is_silent_and_preserves_retry(self):
+        portal = main.Portal.__new__(main.Portal)
+        portal.closed = False
+        portal.activity = []
+        portal.desktop = Mock()
+        portal.desktop.restore.side_effect = OSError('desktop busy')
+        portal.restore_for_system_shutdown()
+        self.assertIn('desktop busy', portal.activity[-1])
+
+    def test_termination_signal_schedules_clean_exit(self):
+        root = Mock()
+        exit_app = Mock()
+        with patch.object(shutdown_hooks.sys, 'platform', 'linux'):
+            hooks = shutdown_hooks.ShutdownHooks(root, Mock(), exit_app)
+        self.addCleanup(hooks.close)
+        hooks._handle_signal(None, None)
+        root.after_idle.assert_called_once_with(exit_app)
 
 
 class EventTests(unittest.TestCase):
@@ -288,11 +325,19 @@ class PackTests(unittest.TestCase):
             self.assertEqual(removed, [unused])
             self.assertTrue(keep.exists())
 
-    def test_local_music_is_packaged_but_youtube_url_is_not_an_asset(self):
+    def test_local_music_is_packaged(self):
         local = {'music': 'music/theme.mp3'}
-        remote = {'music': 'https://www.youtube.com/watch?v=example'}
         self.assertIn('music/theme.mp3', pack_tools.referenced_assets(local))
-        self.assertEqual(pack_tools.referenced_assets(remote), set())
+
+    def test_online_music_link_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'demo').mkdir()
+            issues = pack_tools.validate_pack(
+                'demo', {'music': 'https://www.youtube.com/watch?v=example'},
+                packs_dir=root,
+            )
+        self.assertIn('Online music links are not supported', issues[0])
 
     def test_validation_reports_missing_and_unknown_cursor(self):
         with tempfile.TemporaryDirectory() as directory:

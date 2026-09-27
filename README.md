@@ -39,13 +39,13 @@ The build creates `dist\DesktopPortal\DesktopPortal.exe` and a portable
 together so packs and settings remain editable. The same executable runs in
 the background when Windows starts it with `--background`.
 
-Select a pack and **Activate**, or choose **Bind tag** and scan within 30 seconds. Binding does not activate the pack; remove and rescan the tag. Unknown tags do nothing. Files selected from anywhere are copied into the pack. Cursor mappings expose all 15 Windows cursor states, show animated previews, mirror individual cursors horizontally or vertically, and can auto-detect a folder.
+Select a pack and **Activate**, or choose **Bind tag** and scan within 30 seconds. Binding does not activate the pack; remove and rescan the tag. Unknown tags do nothing. Files selected from anywhere are copied into the pack. Wallpaper and sound selection dialogs let each file be previewed and included or excluded from random rotation. Cursor mappings expose all 15 Windows cursor states, show animated previews, mirror individual cursors horizontally or vertically, and can auto-detect a folder.
 
 The first-run wizard checks the NFC reader and sets the initial restore, startup and theme preferences. The pack list supports live name/ID search plus enabled/disabled filtering. Enable the dark theme in **Options**. In the pack editor, drag files or folders onto the drop area to import supported images, audio and recognizable cursor files.
 
 **Random wheel** opens a CS-style animated picker. It can use every enabled pack or only the enabled packs in one collection, remembers that collection, and activates the winner. The tray menu and configurable Windows global hotkeys can open the wheel or switch to the next, previous, or a random pack without NFC.
 
-Each pack can have looping background music from a local MP3/OGG/WAV file or a YouTube video/playlist URL. YouTube audio is downloaded on first use with `yt-dlp` and FFmpeg, then cached under `data/music-cache`; playlist activations choose a random entry. Background-music volume is separate from activation-sound volume in **Options**.
+Each pack can have looping background music from a local MP3/OGG/WAV file. Background-music volume is separate from activation-sound volume in **Options**.
 
 **Preview** applies a pack temporarily without its sound, then returns to the prior pack. **Options** controls sound volume, cooldown, play-on-change behavior, preview duration and the Windows cursor-size scale. Wallpaper transitions remain instant because native desktop wallpaper APIs do not provide a reliable cross-desktop fade.
 
@@ -58,6 +58,8 @@ Disable a pack to prevent manual and NFC activation. Collections appear as colla
 Enable **Start DesktopPortal at login** to register an immediate Task Scheduler logon trigger. It launches `pythonw.exe` directly without a terminal or Windows' delayed startup-app queue. Closing the GUI hides it while the listener and tray icon continue running. Launch `main.py` again or use the tray to reopen it. The tray also pauses NFC detection, restores the desktop and quits. **Diagnostics** shows platform capabilities, reader state, present tags, recent activity and the background log.
 
 If PC/SC or the reader is unavailable at sign-in, DesktopPortal retries every three seconds. A snapshot in `data/desktop-state.json` allows the original wallpaper and cursors to be restored after a crash.
+
+During Windows shutdown/logoff or Linux termination, DesktopPortal restores the original wallpaper and cursors before exiting. After an abrupt power loss or crash, the background process automatically restores the saved snapshot on its next launch.
 
 ## Linux foundation
 

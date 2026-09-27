@@ -107,6 +107,32 @@ def pack_wallpapers(pack):
     return [wallpaper] if wallpaper else []
 
 
+def pack_assets(pack, category, enabled_only=False):
+    """Return wallpaper or sound paths, optionally excluding disabled entries."""
+    if category == 'wallpapers':
+        paths = pack_wallpapers(pack)
+    elif category == 'sounds':
+        paths = list(pack.get('sounds', []))
+    else:
+        raise ValueError(f'Unsupported rotating asset category: {category}')
+    disabled = pack.get('disabled_assets', {})
+    if not isinstance(disabled, dict):
+        raise ValueError('disabled_assets must contain asset lists.')
+    values = disabled.get(category, [])
+    if not isinstance(values, list) or not all(isinstance(path, str) for path in values):
+        raise ValueError(f'disabled_assets.{category} must be a list of file paths.')
+    return [path for path in paths if path not in set(values)] if enabled_only else paths
+
+
+def pack_music(pack):
+    music = pack.get('music')
+    if music is not None and not isinstance(music, str):
+        raise ValueError('music must be a local file path or null.')
+    if music and music.casefold().startswith(('http://', 'https://')):
+        raise ValueError('Online music links are not supported. Choose a local audio file.')
+    return music
+
+
 def pack_effects(pack):
     effects = pack.get('effects', {})
     if not isinstance(effects, dict):
@@ -183,10 +209,10 @@ def load_packs():
                 raise ValueError('Pack uses a newer unsupported format version.')
             if not isinstance(pack.get('cursors', {}), dict) or not isinstance(pack.get('sounds', []), list):
                 raise ValueError('Invalid cursors or sounds manifest.')
-            music = pack.get('music')
-            if music is not None and not isinstance(music, str):
-                raise ValueError('music must be a file path, URL, or null.')
+            pack_music(pack)
             pack_wallpapers(pack)
+            pack_assets(pack, 'wallpapers', enabled_only=True)
+            pack_assets(pack, 'sounds', enabled_only=True)
             pack_effects(pack)
             pack_enabled(pack)
             packs[folder.name] = pack
@@ -208,6 +234,7 @@ def create_pack(pack_id, name):
         wallpapers=[],
         cursors={},
         sounds=[],
+        disabled_assets={'wallpapers': [], 'sounds': []},
         music=None,
         effects=dict(DEFAULT_EFFECTS),
         enabled=True,

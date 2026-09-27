@@ -3,7 +3,7 @@ import json
 import random
 import time
 from packs import (BASE_DIR, PACKS_DIR, asset, write_json, pack_effects,
-                   pack_wallpapers)
+                   pack_assets, pack_music)
 from cursor_roles import find_cursors
 from platform_backend import get_backend
 from play_sound import play_music, play_sound, stop_music, stop_sound
@@ -28,7 +28,6 @@ class Desktop:
         self.active_music = None
         self.last_sound_at = 0.0
         self.settings = {}
-        self.on_music_error = None
 
     def restore_effects(self):
         # Try both so one failure does not prevent restoring the other effect.
@@ -56,7 +55,7 @@ class Desktop:
         settings = settings or self.settings
         effects = pack_effects(pack)
         wallpapers = (
-            [asset(pack_id, path) for path in pack_wallpapers(pack)]
+            [asset(pack_id, path) for path in pack_assets(pack, 'wallpapers', True)]
             if effects['wallpaper'] else []
         )
         cursor_supported = self.backend.supports_cursors
@@ -71,11 +70,11 @@ class Desktop:
         )
         cursors.update(explicit_cursors)
         sounds = (
-            [asset(pack_id, path) for path in pack.get('sounds', [])]
+            [asset(pack_id, path) for path in pack_assets(pack, 'sounds', True)]
             if effects['sounds'] else []
         )
-        music = pack.get('music') if effects['music'] else None
-        if music and not str(music).lower().startswith(('http://', 'https://')):
+        music = pack_music(pack) if effects['music'] else None
+        if music:
             music = asset(pack_id, music)
         if self.original is None:
             self.original = dict(wallpaper=get_wallpaper(), cursors=snapshot_cursors())
@@ -103,10 +102,7 @@ class Desktop:
                 self.last_sound_at = now
             if changed or music != self.active_music:
                 if music:
-                    play_music(
-                        music, settings.get('music_volume', 0.5),
-                        self.on_music_error,
-                    )
+                    play_music(music, settings.get('music_volume', 0.5))
                 else:
                     stop_music()
                 self.active_music = music

@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageTk
 from desktop import Desktop
 from packs import (PACKS_DIR, load_packs, load_tags, save_tags, create_pack,
                    write_json, load_settings, save_settings, pack_effects,
-                   pack_wallpapers, pack_enabled, load_collections,
+                   pack_wallpapers, pack_assets, pack_enabled, load_collections,
                    save_collections, group_packs, DEFAULT_SETTINGS)
 from cursor_roles import (CURSOR_MAPPING, CURSOR_ROLES, detect_cursor_role,
                           find_cursors)
@@ -23,14 +23,25 @@ from hotkeys import HotkeyManager, parse_hotkey
 from pack_tools import (cleanup_assets, export_bundle, import_bundle,
                         unused_assets, validate_pack)
 from platform_backend import capability_summary
-from play_sound import (is_web_music, play_music, play_sound, set_music_volume,
-                        stop_music)
+from play_sound import (play_music, play_sound, set_music_volume, stop_music,
+                        stop_sound)
 from startup import startup_enabled, set_startup_enabled
+from shutdown_hooks import ShutdownHooks
 from tray import TrayIcon
 from random_wheel import RandomWheel, ALL_PACKS
 
 IPC_HOST = '127.0.0.1'
 IPC_PORT = 45873
+
+
+def recover_previous_desktop(desktop):
+    if desktop.original is None:
+        return None
+    try:
+        desktop.restore()
+        return 'Original desktop restored after the previous session.'
+    except Exception as error:
+        return f'Previous desktop recovery failed: {error}'
 
 
 class Portal:
@@ -64,9 +75,7 @@ class Portal:
             self.settings = dict(DEFAULT_SETTINGS)
             messagebox.showerror('Settings unavailable', str(error), parent=root)
         self.desktop.settings = self.settings
-        self.desktop.on_music_error = lambda message: self.events.put(
-            ('music_error', '', message)
-        )
+        self.recovery_status = recover_previous_desktop(self.desktop)
         saved_cursor_size = self.settings.get('cursor_size')
         if saved_cursor_size is not None and self.desktop.backend.supports_cursor_size:
             self.desktop.backend.set_cursor_size(saved_cursor_size)
@@ -218,8 +227,8 @@ class Portal:
         hotkey_errors = self.hotkeys.start(self.hotkey_bindings())
         if hotkey_errors:
             self.activity.extend(f'Hotkey: {error}' for error in hotkey_errors)
-        if self.desktop.original is not None:
-            self.status.set('Saved desktop snapshot found. Restore desktop to recover it.')
+        if self.recovery_status:
+            self.status.set(self.recovery_status)
         if monitor:
             root.after(0, self.refresh_readers)
         root.protocol('WM_DELETE_WINDOW', self.hide)
@@ -860,9 +869,6 @@ class Portal:
                 break
             if event[0] == 'hotkey':
                 self.run(lambda action=event[1]: self.handle_hotkey(action))
-            elif event[0] == 'music_error':
-                self.status.set(f'Music unavailable: {event[2]}')
-                self.activity.append(f'Music error: {event[2]}')
             else:
                 self.run(lambda event=event: self.handle_event(*event))
         if not self.closed:
@@ -878,13 +884,27 @@ class Portal:
     def hide(self):
         self.root.withdraw()
 
-    def quit_app(self):
+    def restore_for_system_shutdown(self):
+        if self.closed:
+            return
+        try:
+            self.desktop.restore()
+            self.activity.append('Original desktop restored for system shutdown.')
+        except Exception as error:
+            # Keep the recovery snapshot so the next launch can retry.
+            self.activity.append(f'System shutdown restoration failed: {error}')
+
+    def quit_app(self, silent=False):
         try:
             self.desktop.restore()
         except Exception as error:
-            messagebox.showerror('Restoration failed', f'{error}\nThe recovery snapshot is preserved. Try Restore desktop again.', parent=self.root)
-            return
+            if not silent:
+                messagebox.showerror('Restoration failed', f'{error}\nThe recovery snapshot is preserved. Try Restore desktop again.', parent=self.root)
+                return
         self.closed = True
+        hooks = getattr(self, 'shutdown_hooks', None)
+        if hooks is not None:
+            hooks.close()
         if self.monitor is not None:
             self.monitor.deleteObserver(self.observer)
         self.root.after_cancel(self.poll_id)
@@ -1162,6 +1182,11 @@ class PackEditor:
         self.pack['music'] = self.pack.get('music')
         self.pack['cursors'] = dict(self.pack.get('cursors', {}))
         self.pack['wallpapers'] = pack_wallpapers(self.pack)
+        disabled = self.pack.get('disabled_assets', {})
+        self.pack['disabled_assets'] = {
+            'wallpapers': list(disabled.get('wallpapers', [])),
+            'sounds': list(disabled.get('sounds', [])),
+        }
         self.pack.pop('wallpaper', None)
         self.pack['effects'] = pack_effects(self.pack)
         self.window = tk.Toplevel(portal.root)
@@ -1204,13 +1229,14 @@ class PackEditor:
         }
         for name, actions in [
             ('wallpaper', [('Add wallpapers', self.wallpaper),
+                           ('Select / preview', self.manage_wallpapers),
                            ('Clear', self.clear_wallpapers)]),
             ('cursors', [('Edit mappings', self.cursor_mappings)]),
             ('sounds', [('Add sounds', self.sounds),
+                        ('Select / preview', self.manage_sounds),
                         ('Clear', self.clear_sounds),
-                        ('Test', self.test_sound)]),
+                        ]),
             ('music', [('Choose file', self.choose_music),
-                       ('YouTube link', self.youtube_music),
                        ('Clear', self.clear_music),
                        ('Test', self.test_music),
                        ('Stop', stop_music)]),
@@ -1240,17 +1266,19 @@ class PackEditor:
         self.update_info()
 
     def update_info(self):
+        wallpaper_count = len(pack_assets(self.pack, 'wallpapers', True))
         self.effect_labels['wallpaper'].set(
-            f'Wallpapers ({len(self.pack["wallpapers"])})'
+            f'Wallpapers ({wallpaper_count}/{len(self.pack["wallpapers"])} enabled)'
         )
         self.effect_labels['cursors'].set(
             f'Cursor mappings ({len(self.pack["cursors"])}/15)'
         )
+        sound_count = len(pack_assets(self.pack, 'sounds', True))
         self.effect_labels['sounds'].set(
-            f'Sounds ({len(self.pack["sounds"])})'
+            f'Sounds ({sound_count}/{len(self.pack["sounds"])} enabled)'
         )
         music = self.pack.get('music')
-        kind = 'YouTube' if music and is_web_music(music) else ('Local' if music else 'None')
+        kind = 'Local' if music else 'None'
         self.effect_labels['music'].set(f'Background music ({kind})')
 
     def copy(self, source, category, replace=None):
@@ -1337,7 +1365,11 @@ class PackEditor:
 
     def clear_wallpapers(self):
         self.pack['wallpapers'] = []
+        self.pack['disabled_assets']['wallpapers'] = []
         self.update_info()
+
+    def manage_wallpapers(self):
+        AssetRotationEditor(self, 'wallpapers')
 
     def cursor_mappings(self):
         CursorEditor(self)
@@ -1349,14 +1381,11 @@ class PackEditor:
 
     def clear_sounds(self):
         self.pack['sounds'] = []
+        self.pack['disabled_assets']['sounds'] = []
         self.update_info()
 
-    def test_sound(self):
-        if self.pack['sounds']:
-            play_sound(
-                PACKS_DIR / self.pack_id / self.pack['sounds'][0],
-                self.portal.settings.get('sound_volume', 0.8),
-            )
+    def manage_sounds(self):
+        AssetRotationEditor(self, 'sounds')
 
     def choose_music(self):
         path = filedialog.askopenfilename(
@@ -1365,22 +1394,7 @@ class PackEditor:
         )
         if path:
             previous = self.pack.get('music')
-            replace = previous if previous and not is_web_music(previous) else None
-            self.pack['music'] = self.copy(path, 'music', replace=replace)
-            self.update_info()
-
-    def youtube_music(self):
-        value = simpledialog.askstring(
-            'YouTube background music',
-            'Paste a YouTube video or playlist URL:',
-            initialvalue=self.pack.get('music') if is_web_music(self.pack.get('music')) else '',
-            parent=self.window,
-        )
-        if value:
-            value = value.strip()
-            if not is_web_music(value):
-                raise ValueError('Enter a complete http:// or https:// URL.')
-            self.pack['music'] = value
+            self.pack['music'] = self.copy(path, 'music', replace=previous)
             self.update_info()
 
     def clear_music(self):
@@ -1392,12 +1406,8 @@ class PackEditor:
         source = self.pack.get('music')
         if not source:
             raise ValueError('Choose background music first.')
-        if not is_web_music(source):
-            source = PACKS_DIR / self.pack_id / source
-        play_music(
-            source, self.portal.settings.get('music_volume', 0.5),
-            self.portal.desktop.on_music_error,
-        )
+        source = PACKS_DIR / self.pack_id / source
+        play_music(source, self.portal.settings.get('music_volume', 0.5))
 
     def save(self):
         if not self.name.get().strip():
@@ -1408,9 +1418,106 @@ class PackEditor:
             name: variable.get()
             for name, variable in self.effect_vars.items()
         }
+        for category in ('wallpapers', 'sounds'):
+            current = set(self.pack[category])
+            self.pack['disabled_assets'][category] = [
+                path for path in self.pack['disabled_assets'][category]
+                if path in current
+            ]
         write_json(PACKS_DIR / self.pack_id / 'pack.json', self.pack)
         self.portal.reload()
         self.window.destroy()
+
+
+class AssetRotationEditor:
+    def __init__(self, editor, category):
+        self.editor, self.category = editor, category
+        self.paths = editor.pack[category]
+        title = 'Wallpapers' if category == 'wallpapers' else 'Activation sounds'
+        self.window = tk.Toplevel(editor.window)
+        self.window.title(f'{title} selection')
+        self.window.geometry('760x520')
+        self.window.minsize(620, 420)
+        self.window.transient(editor.window)
+        self.window.grab_set()
+        self.window.protocol('WM_DELETE_WINDOW', self.close)
+
+        outer = ttk.Frame(self.window, padding=18)
+        outer.pack(fill='both', expand=True)
+        ttk.Label(
+            outer,
+            text=f'Choose which {title.lower()} can be selected during rotation.',
+        ).pack(anchor='w', pady=(0, 10))
+
+        body = ttk.Frame(outer)
+        body.pack(fill='both', expand=True)
+        canvas = tk.Canvas(body, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(body, orient='vertical', command=canvas.yview)
+        self.rows = ttk.Frame(canvas)
+        self.rows.bind('<Configure>', lambda event: canvas.configure(scrollregion=canvas.bbox('all')))
+        self.row_window = canvas.create_window((0, 0), window=self.rows, anchor='nw')
+        canvas.bind('<Configure>', lambda event: canvas.itemconfigure(self.row_window, width=event.width))
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+        disabled = set(editor.pack['disabled_assets'][category])
+        self.variables = {}
+        for path in self.paths:
+            row = ttk.Frame(self.rows, padding=(4, 4))
+            row.pack(fill='x')
+            variable = tk.BooleanVar(value=path not in disabled)
+            self.variables[path] = variable
+            ttk.Checkbutton(row, text=Path(path).name, variable=variable,
+                            command=self.apply).pack(side='left', fill='x', expand=True)
+            label = 'Preview' if category == 'wallpapers' else 'Play'
+            ttk.Button(row, text=label,
+                       command=lambda item=path: editor.portal.run(lambda: self.preview(item))).pack(side='right')
+
+        if not self.paths:
+            ttk.Label(self.rows, text=f'No {title.lower()} added yet.').pack(anchor='w', pady=10)
+
+        self.image_label = None
+        self.preview_image = None
+        if category == 'wallpapers':
+            self.image_label = tk.Label(outer, height=150, bd=0)
+            self.image_label.pack(fill='x', pady=(12, 0))
+
+        actions = ttk.Frame(outer)
+        actions.pack(fill='x', pady=(12, 0))
+        ttk.Button(actions, text='Enable all', command=lambda: self.set_all(True)).pack(side='left')
+        ttk.Button(actions, text='Disable all', command=lambda: self.set_all(False)).pack(side='left', padx=6)
+        if category == 'sounds':
+            ttk.Button(actions, text='Stop', command=stop_sound).pack(side='left')
+        ttk.Button(actions, text='Done', command=self.close).pack(side='right')
+
+    def apply(self):
+        self.editor.pack['disabled_assets'][self.category] = [
+            path for path, variable in self.variables.items() if not variable.get()
+        ]
+        self.editor.update_info()
+
+    def set_all(self, enabled):
+        for variable in self.variables.values():
+            variable.set(enabled)
+        self.apply()
+
+    def preview(self, relative):
+        path = PACKS_DIR / self.editor.pack_id / relative
+        if self.category == 'sounds':
+            play_sound(path, self.editor.portal.settings.get('sound_volume', 0.8))
+            return
+        image = Image.open(path)
+        image.thumbnail((680, 150), Image.Resampling.LANCZOS)
+        self.preview_image = ImageTk.PhotoImage(image, master=self.window)
+        self.image_label.configure(image=self.preview_image)
+
+    def close(self):
+        self.apply()
+        if self.category == 'sounds':
+            stop_sound()
+        self.window.destroy()
+        self.editor.window.grab_set()
 
 
 class CursorEditor:
@@ -1850,10 +1957,15 @@ def main(start_hidden=False, on_ready=None):
     if start_hidden:
         root.withdraw()
     try:
-        Portal(
+        portal = Portal(
             root,
             command_socket=command_socket,
             start_hidden=start_hidden,
+        )
+        portal.shutdown_hooks = ShutdownHooks(
+            root,
+            portal.restore_for_system_shutdown,
+            lambda: portal.quit_app(silent=True),
         )
     except Exception as error:
         messagebox.showerror('DesktopPortal could not start', str(error), parent=root)

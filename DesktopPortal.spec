@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 
 datas, binaries, hiddenimports = [], [], []
-for package in ('tkinterdnd2', 'smartcard', 'pystray', 'yt_dlp'):
+for package in ('tkinterdnd2', 'smartcard', 'pystray'):
     package_data, package_binaries, package_hidden = collect_all(package)
     datas += package_data
     binaries += package_binaries

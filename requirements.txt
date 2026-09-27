@@ -3,4 +3,3 @@ pygame-ce
 Pillow
 pystray
 tkinterdnd2
-yt-dlp

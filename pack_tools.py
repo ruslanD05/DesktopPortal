@@ -6,7 +6,8 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from cursor_roles import CURSOR_ROLES
-from packs import PACKS_DIR, pack_effects, pack_wallpapers, write_json
+from packs import (PACKS_DIR, pack_assets, pack_effects, pack_music,
+                   pack_wallpapers, write_json)
 
 PACK_FORMAT_VERSION = 1
 BUNDLE_FORMAT = 'desktopportal-bundle'
@@ -16,7 +17,7 @@ def referenced_assets(pack):
     assets = (set(pack_wallpapers(pack)) | set(pack.get('cursors', {}).values())
               | set(pack.get('sounds', [])))
     music = pack.get('music')
-    if music and not music.lower().startswith(('http://', 'https://')):
+    if music:
         assets.add(music)
     return assets
 
@@ -28,11 +29,14 @@ def validate_pack(pack_id, pack, tags=None, packs_dir=None):
         issues.append('Pack uses a newer format version.')
     try:
         pack_effects(pack)
+        pack_assets(pack, 'wallpapers', enabled_only=True)
+        pack_assets(pack, 'sounds', enabled_only=True)
     except ValueError as error:
         issues.append(str(error))
-    music = pack.get('music')
-    if music is not None and not isinstance(music, str):
-        issues.append('music must be a file path, URL, or null.')
+    try:
+        music = pack_music(pack)
+    except ValueError as error:
+        issues.append(str(error))
         music = None
     unknown = sorted(set(pack.get('cursors', {})) - set(CURSOR_ROLES))
     if unknown:
@@ -42,7 +46,7 @@ def validate_pack(pack_id, pack, tags=None, packs_dir=None):
         **{path: {'.ani', '.cur'} for path in pack.get('cursors', {}).values()},
         **{path: {'.mp3', '.wav', '.ogg'} for path in pack.get('sounds', [])},
     }
-    if music and not music.lower().startswith(('http://', 'https://')):
+    if music:
         allowed[music] = {'.mp3', '.wav', '.ogg'}
     for relative, extensions in allowed.items():
         path = (root / relative).resolve()
