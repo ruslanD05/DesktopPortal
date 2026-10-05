@@ -53,6 +53,10 @@ def _preview_icon(data):
 def preview_frames(path):
     """Return independent RGBA frames suitable for a GUI preview."""
     data = Path(path).read_bytes()
+    if data[:4] == b'Xcur':
+        from cursor_conversion import read_cursor
+        _, tracks = read_cursor(path)
+        return [frame.image for frame in tracks[max(tracks)]]
     if data[:4] == b'RIFF' and data[8:12] == b'ACON':
         frames = [_preview_icon(item) for item in _icon_chunks(data[12:])]
         if not frames:
@@ -136,6 +140,10 @@ def flip_cursor(path, axis):
         raise ValueError("Cursor flip axis must be 'x' or 'y'.")
     path = Path(path)
     data = path.read_bytes()
+    if data[:4] == b'Xcur':
+        from cursor_conversion import flip_xcursor
+        flip_xcursor(path, axis)
+        return
     horizontal = axis == 'x'
     if data[:4] == b'RIFF' and data[8:12] == b'ACON':
         result = b'RIFF' + struct.pack('<I', 0) + b'ACON'

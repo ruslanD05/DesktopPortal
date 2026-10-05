@@ -463,6 +463,11 @@ class PackTests(unittest.TestCase):
             dropped.mkdir()
             for name in ('wallpaper.png', 'hello.mp3', 'Demo -Normal Select-.ani'):
                 (dropped / name).write_bytes(name.encode())
+            from cursor_conversion import Frame, _cur_bytes
+            from PIL import Image
+            (dropped / 'Demo -Normal Select-.ani').write_bytes(
+                _cur_bytes([Frame(Image.new('RGBA', (16, 16), 'red'), 0, 0)])
+            )
             editor = main.PackEditor.__new__(main.PackEditor)
             editor.pack_id = 'demo'
             editor.pack = {'wallpapers': [], 'sounds': [], 'cursors': {}}

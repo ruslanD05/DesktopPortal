@@ -17,6 +17,31 @@ CURSOR_MAPPING = {
     'Alternate Select': 'UpArrow', 'Link Select': 'Hand',
 }
 
+LINUX_CURSOR_ROLES = {
+    'left_ptr': 'Arrow', 'default': 'Arrow', 'arrow': 'Arrow',
+    'question_arrow': 'Help', 'help': 'Help',
+    'left_ptr_watch': 'AppStarting', 'progress': 'AppStarting',
+    'watch': 'Wait', 'wait': 'Wait', 'crosshair': 'Crosshair',
+    'xterm': 'IBeam', 'text': 'IBeam', 'pencil': 'NWPen',
+    'not-allowed': 'No', 'crossed_circle': 'No',
+    'ns-resize': 'SizeNS', 'sb_v_double_arrow': 'SizeNS',
+    'ew-resize': 'SizeWE', 'sb_h_double_arrow': 'SizeWE',
+    'nwse-resize': 'SizeNWSE', 'size_fdiag': 'SizeNWSE',
+    'nesw-resize': 'SizeNESW', 'size_bdiag': 'SizeNESW',
+    'fleur': 'SizeAll', 'move': 'SizeAll', 'all-scroll': 'SizeAll',
+    'up_arrow': 'UpArrow', 'hand2': 'Hand', 'pointer': 'Hand',
+}
+
+
+def is_cursor_file(path):
+    path = Path(path)
+    if not path.is_file():
+        return False
+    if path.suffix.lower() in {'.ani', '.cur', '.xcursor'}:
+        return True
+    with path.open('rb') as source:
+        return source.read(4) == b'Xcur'
+
 # Windows registry identifiers are common in downloaded cursor packs, while
 # the display names above are more common in hand-labeled folders. Matching
 # ignores separators, so e.g. ``Working_in_Background`` and
@@ -69,20 +94,23 @@ def find_cursors(cursor_dir):
     if not cursor_dir.exists():
         raise FileNotFoundError(f'Cursor directory not found: {cursor_dir.resolve()}')
     cursors = {}
-    for path in cursor_dir.iterdir():
-        if path.suffix.lower() not in {'.ani', '.cur'}:
+    paths = sorted(cursor_dir.rglob('*'), key=lambda path: (
+        len(path.relative_to(cursor_dir).parts), str(path).casefold(),
+    ))
+    for path in paths:
+        if not is_cursor_file(path):
             continue
-        stem = _normalize_name(path.stem)
-        # Match longer aliases first, so "Normal Select" wins over "Normal".
-        for alias, role in _NORMALIZED_ALIASES:
-            if alias in stem:
-                cursors[role] = path.resolve()
-                break
+        role = detect_cursor_role(path)
+        if role:
+            # Prefer files nearest the selected folder when nested names repeat.
+            cursors.setdefault(role, path.resolve())
     return cursors
 
 
 def detect_cursor_role(path):
-    """Infer one cursor role from a .ani/.cur filename."""
+    """Infer a cursor role from common Windows or Linux cursor names."""
+    if Path(path).stem.casefold() in LINUX_CURSOR_ROLES:
+        return LINUX_CURSOR_ROLES[Path(path).stem.casefold()]
     stem = _normalize_name(Path(path).stem)
     for alias, role in _NORMALIZED_ALIASES:
         if alias in stem:

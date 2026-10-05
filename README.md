@@ -65,6 +65,67 @@ During Windows shutdown/logoff or Linux termination, DesktopPortal restores the 
 
 Pack, collection, NFC, sound, tray and GUI code is portable. GNOME, Cinnamon and Unity wallpaper changes use `gsettings`; KDE uses `plasma-apply-wallpaperimage`. Per-role `.ani`/`.cur` cursor mapping is a Windows feature and is skipped on Linux. Linux startup uses `~/.config/autostart/DesktopPortal.desktop`.
 
+## Standalone cursor converter
+
+### Apply cursors on Ubuntu/GNOME
+
+The standalone Linux activation script accepts a saved pack folder or an
+extracted cursor folder, converts its assets, and installs an Xcursor theme:
+
+```bash
+python3 linux_cursor.py apply packs/hollowknight
+python3 linux_cursor.py apply "/home/ruslan/Downloads/Hollow Knight" --size 32
+python3 linux_cursor.py status
+python3 linux_cursor.py restore
+```
+
+Run it as your desktop user, without sudo. Generated themes live in `~/.icons`.
+Unmapped Linux cursor shapes inherit your original theme. The first apply saves
+the original theme and pixel size in `data/linux-cursor-state.json`; subsequent
+applies preserve that first snapshot. Restore removes it only after both settings
+are restored successfully. These commands change only cursor settings. This
+script is separate from the GUI's Activate/Restore flow for now. Some running
+applications may need to be reopened to pick up a new theme.
+
+Cursor conversion also runs automatically when editing a pack or importing a
+DesktopPortal bundle. Selecting or dropping a cursor, or using **Auto-detect
+folder**, detects CUR, ANI or Xcursor by content and prepares a file for the
+current OS only when needed. Source files are retained in the pack via
+`cursor_sources`; `cursors` maps roles to the prepared files. Conversion results
+are reused until the source changes. Linux cursor names such as `left_ptr`,
+`watch`, and `xterm` are recognized, including extensionless files. Converting
+assets does not yet enable Linux cursor activation.
+
+On Ubuntu, open the converter window with:
+
+```bash
+python3 cursor_converter.py
+```
+
+Choose a Windows `.cur`/`.ani` file or a Linux Xcursor file (often extensionless),
+then an output folder and click **Convert**. The tool detects the direction from
+file contents and writes `.xcursor`, `.cur`, or `.ani` as appropriate. Existing
+files are never overwritten. It does not install themes or change your cursor.
+
+The same conversion is available from the terminal:
+
+```bash
+python3 cursor_converter.py "input.ani" /path/to/output-folder
+python3 cursor_converter.py /usr/share/icons/DMZ-White/cursors/left_ptr output.cur
+python3 cursor_converter.py /path/to/animated-xcursor output.ani --size 32
+```
+
+Conversion requires Pillow (already in `requirements.txt`). The native Xcursor
+library is used when available, with a portable reader/writer for Windows.
+Images, hotspots and compatible
+size variants are retained. Windows animation timing is rounded to 1/60-second
+ticks; Xcursor uses milliseconds. Premultiplied Linux transparency can introduce
+small color-rounding differences. If sizes have different animation timing,
+select one size in the standalone tool. Automatic import selects the largest
+compatible size when size variants cannot share one Windows animation timeline.
+Windows output is limited to images up to 256 pixels. ANI files
+with raw bitmap frames or embedded ICO frames without hotspots are unsupported.
+
 ## Checks
 
 ```powershell

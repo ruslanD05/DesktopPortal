@@ -6,6 +6,8 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from cursor_roles import CURSOR_ROLES
+from cursor_assets import prepare_pack_cursors
+from cursor_conversion import cursor_format
 from packs import (PACKS_DIR, pack_assets, pack_effects, pack_music,
                    pack_wallpapers, write_json)
 
@@ -15,6 +17,7 @@ BUNDLE_FORMAT = 'desktopportal-bundle'
 
 def referenced_assets(pack):
     assets = (set(pack_wallpapers(pack)) | set(pack.get('cursors', {}).values())
+              | set(pack.get('cursor_sources', {}).values())
               | set(pack.get('sounds', [])))
     music = pack.get('music')
     if music:
@@ -43,7 +46,8 @@ def validate_pack(pack_id, pack, tags=None, packs_dir=None):
         issues.append('Unknown cursor roles: ' + ', '.join(unknown))
     allowed = {
         **{path: {'.png', '.jpg', '.jpeg', '.bmp'} for path in pack_wallpapers(pack)},
-        **{path: {'.ani', '.cur'} for path in pack.get('cursors', {}).values()},
+        **{path: None for path in (*pack.get('cursors', {}).values(),
+                                  *pack.get('cursor_sources', {}).values())},
         **{path: {'.mp3', '.wav', '.ogg'} for path in pack.get('sounds', [])},
     }
     if music:
@@ -54,6 +58,11 @@ def validate_pack(pack_id, pack, tags=None, packs_dir=None):
             issues.append(f'Asset escapes pack folder: {relative}')
         elif not path.is_file():
             issues.append(f'Missing asset: {relative}')
+        elif extensions is None:
+            try:
+                cursor_format(path)
+            except ValueError:
+                issues.append(f'Unsupported cursor type: {relative}')
         elif path.suffix.lower() not in extensions:
             issues.append(f'Unsupported asset type: {relative}')
     if tags is not None:
@@ -139,11 +148,12 @@ def import_bundle(source, packs_dir=None):
                 while (packs_dir / candidate).exists():
                     candidate = f'{original}_{number}'
                     number += 1
-                shutil.copytree(source_root, packs_dir / candidate)
-                pack = json.loads((packs_dir / candidate / 'pack.json').read_text(encoding='utf-8'))
+                pack = json.loads((source_root / 'pack.json').read_text(encoding='utf-8'))
+                prepare_pack_cursors(pack, source_root)
                 pack['id'] = candidate
                 pack['format_version'] = PACK_FORMAT_VERSION
-                write_json(packs_dir / candidate / 'pack.json', pack)
+                write_json(source_root / 'pack.json', pack)
+                shutil.copytree(source_root, packs_dir / candidate)
                 imported.append(candidate)
                 mapping[original] = candidate
     collection = manifest.get('collection')

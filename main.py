@@ -17,8 +17,9 @@ from packs import (PACKS_DIR, load_packs, load_tags, save_tags, create_pack,
                    pack_wallpapers, pack_assets, pack_enabled, load_collections,
                    save_collections, group_packs, DEFAULT_SETTINGS)
 from cursor_roles import (CURSOR_MAPPING, CURSOR_ROLES, detect_cursor_role,
-                          find_cursors)
+                          find_cursors, is_cursor_file)
 from cursor_images import flip_cursor, preview_frames
+from cursor_assets import native_cursor, prepare_pack_cursors
 from hotkeys import HotkeyManager, parse_hotkey
 from pack_tools import (cleanup_assets, export_bundle, import_bundle,
                         unused_assets, validate_pack)
@@ -1181,6 +1182,8 @@ class PackEditor:
         self.pack['sounds'] = list(self.pack.get('sounds', []))
         self.pack['music'] = self.pack.get('music')
         self.pack['cursors'] = dict(self.pack.get('cursors', {}))
+        self.pack['cursor_sources'] = dict(self.pack.get('cursor_sources', {}))
+        prepare_pack_cursors(self.pack, PACKS_DIR / pack_id)
         self.pack['wallpapers'] = pack_wallpapers(self.pack)
         disabled = self.pack.get('disabled_assets', {})
         self.pack['disabled_assets'] = {
@@ -1307,14 +1310,11 @@ class PackEditor:
 
     def assign_cursor(self, role, path):
         mappings = self.pack['cursors']
-        previous = mappings.get(role)
-        relative = self.copy(path, 'cursors', replace=previous)
+        source = self.copy(path, 'cursors')
+        root = (PACKS_DIR / self.pack_id).resolve()
+        relative = native_cursor(root / source, root)
+        self.pack.setdefault('cursor_sources', {})[role] = source
         mappings[role] = relative
-        if previous and previous != relative and previous not in mappings.values():
-            root = (PACKS_DIR / self.pack_id).resolve()
-            obsolete = (root / previous).resolve()
-            if obsolete.is_relative_to(root):
-                obsolete.unlink(missing_ok=True)
 
     def drop_assets(self, raw_paths):
         paths = []
@@ -1334,7 +1334,7 @@ class PackEditor:
             elif suffix in {'.mp3', '.wav', '.ogg'}:
                 self.pack['sounds'].append(self.copy(path, 'sounds'))
                 counts['sounds'] += 1
-            elif suffix in {'.ani', '.cur'}:
+            elif is_cursor_file(path):
                 role = detect_cursor_role(path)
                 if role:
                     self.assign_cursor(role, path)
@@ -1542,15 +1542,19 @@ class CursorEditor:
 
         frame = ttk.Frame(self.window, padding=20)
         frame.pack(fill='both', expand=True)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
         ttk.Label(
             frame,
             text=('Choose a separate .ani or .cur file for each Windows cursor role. '
                   'Files from outside the pack are copied into it automatically.'),
             wraplength=700,
-        ).pack(anchor='w', pady=(0, 10))
+        ).grid(row=0, column=0, sticky='w', pady=(0, 10))
 
         body = ttk.Frame(frame)
-        body.pack(fill='both', expand=True)
+        body.grid(row=1, column=0, sticky='nsew')
+        body.columnconfigure(0, weight=1)
+        body.rowconfigure(0, weight=1)
         self.list = ttk.Treeview(
             body,
             columns=('role', 'file'),
@@ -1562,15 +1566,18 @@ class CursorEditor:
         self.list.heading('file', text='Selected file', anchor='w')
         self.list.column('role', width=210, stretch=False)
         self.list.column('file', width=430)
-        self.list.pack(side='left', fill='both', expand=True)
+        self.list.grid(row=0, column=0, sticky='nsew')
         self.list.bind('<Double-1>', lambda event: self.editor.portal.run(self.choose))
         self.list.bind('<<TreeviewSelect>>', lambda event: self.update_preview())
 
         preview = ttk.Frame(body, padding=(18, 8, 0, 0))
-        preview.pack(side='right', fill='y')
+        preview.grid(row=0, column=1, sticky='ns')
         ttk.Label(preview, text='Preview').pack(anchor='w')
-        self.preview = tk.Label(preview, width=180, height=180, bd=0)
-        self.preview.pack(pady=(8, 8))
+        preview_area = ttk.Frame(preview, width=180, height=180)
+        preview_area.pack(pady=(8, 8))
+        preview_area.pack_propagate(False)
+        self.preview = tk.Label(preview_area, bd=0)
+        self.preview.pack(fill='both', expand=True)
         self.preview_text = tk.StringVar(value='No cursor selected')
         ttk.Label(
             preview, textvariable=self.preview_text,
@@ -1589,7 +1596,7 @@ class CursorEditor:
         self.preview_job = None
 
         actions = ttk.Frame(frame)
-        actions.pack(fill='x', pady=(12, 0))
+        actions.grid(row=2, column=0, sticky='ew', pady=(12, 0))
         for label, action in [
             ('Choose file', self.choose),
             ('Clear selected', self.clear_selected),
@@ -1633,7 +1640,7 @@ class CursorEditor:
         path = filedialog.askopenfilename(
             parent=self.window,
             title=f'Choose {self.ROLE_NAMES[role]} cursor',
-            filetypes=[('Windows cursors', '*.ani *.cur')],
+            filetypes=[('Cursor files', '*.ani *.cur *.xcursor'), ('All files', '*')],
         )
         if path:
             self.assign(role, path)
@@ -1643,7 +1650,9 @@ class CursorEditor:
         self.editor.assign_cursor(role, path)
 
     def clear_selected(self):
-        self.editor.pack['cursors'].pop(self.selected_role(), None)
+        role = self.selected_role()
+        self.editor.pack['cursors'].pop(role, None)
+        self.editor.pack.get('cursor_sources', {}).pop(role, None)
         self.refresh()
 
     def cursor_path(self, role):
@@ -1661,19 +1670,20 @@ class CursorEditor:
         path = self.cursor_path(role)
         if path is None:
             raise ValueError('Choose a cursor for this state first.')
-        mappings = self.editor.pack['cursors']
-        relative = mappings[role]
-        if sum(value == relative for value in mappings.values()) > 1:
-            root = (PACKS_DIR / self.editor.pack_id).resolve()
-            target = path.with_name(f'{path.stem}_{role.lower()}{path.suffix}')
-            index = 1
-            while target.exists():
-                target = path.with_name(f'{path.stem}_{role.lower()}_{index}{path.suffix}')
-                index += 1
-            shutil.copy2(path, target)
-            mappings[role] = target.relative_to(root).as_posix()
-            path = target
-        flip_cursor(path, axis)
+        root = (PACKS_DIR / self.editor.pack_id).resolve()
+        relative = self.editor.pack.get('cursor_sources', {}).get(role)
+        if relative:
+            path = (root / relative).resolve()
+            if not path.is_relative_to(root) or not path.is_file():
+                raise ValueError('Missing or invalid cursor source.')
+        target = path.with_name(f'{path.stem}_{role.lower()}{path.suffix}')
+        index = 1
+        while target.exists():
+            target = path.with_name(f'{path.stem}_{role.lower()}_{index}{path.suffix}')
+            index += 1
+        shutil.copy2(path, target)
+        flip_cursor(target, axis)
+        self.assign(role, target)
         self.refresh()
         self.list.selection_set(role)
         self.update_preview()
