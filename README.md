@@ -1,31 +1,41 @@
 # DesktopPortal
 
-DesktopPortal activates wallpaper, cursors and a random sound from portable packs using NFC or the GUI.
+> **Beta.** Windows is the main platform. Linux support is experimental.
 
-## Run
+Make themed packs of wallpapers, cursors, sounds and background music, then
+switch between them from the app, a tray menu, global hotkeys or a random
+"theme wheel". An NFC reader is optional: tap a tag to switch packs.
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe main.py
-```
+## Install (Windows)
 
-For a new Windows machine, clone the private repository and set up Python first:
+1. Download `DesktopPortal-Windows.zip` from the
+   [Releases](https://github.com/ruslanD05/DesktopPortal/releases) page.
+2. Extract it to a folder you own, such as `Documents\DesktopPortal`. The app
+   keeps its packs and settings next to the executable, so do not extract it
+   into `Program Files`.
+3. Run `DesktopPortal.exe`. The build is unsigned, so Windows SmartScreen may
+   warn you; choose **More info** > **Run anyway**.
+
+The app starts with no packs. Create one with **New pack**, then add images,
+cursors and sounds, or import a pack ZIP someone has shared. Only share packs
+whose assets you have the right to redistribute.
+
+**Restore desktop** in the tray menu always returns your original wallpaper and
+cursors, and quitting the app does the same.
+
+## Run from source
 
 ```powershell
 git clone https://github.com/ruslanD05/DesktopPortal.git
 cd DesktopPortal
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -B -m unittest discover -s tests -q
 .\.venv\Scripts\python.exe main.py
 ```
 
-Personal packs and their wallpapers, sounds and cursors are excluded from Git.
-Transfer the `packs` folder separately, or export packs on the original PC and
-import them in the app. A fresh clone starts without packs. Existing tag and
-collection entries do not become usable until their packs are transferred.
-Configure **Start DesktopPortal at login** on the new machine so its task points
-to that machine's application path.
+Packs (`packs/`) and personal data (`data/`) are excluded from Git. To move
+your setup to another PC, export packs there and import them, and re-enable
+**Start DesktopPortal at login** so it points to the new location.
 
 ## Build the Windows application
 
@@ -73,8 +83,8 @@ The standalone Linux activation script accepts a saved pack folder or an
 extracted cursor folder, converts its assets, and installs an Xcursor theme:
 
 ```bash
-python3 linux_cursor.py apply packs/hollowknight
-python3 linux_cursor.py apply "/home/ruslan/Downloads/Hollow Knight" --size 32
+python3 linux_cursor.py apply packs/my_pack
+python3 linux_cursor.py apply ~/Downloads/MyCursors --size 32
 python3 linux_cursor.py status
 python3 linux_cursor.py restore
 ```

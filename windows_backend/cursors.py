@@ -3,7 +3,7 @@ import ctypes
 from ctypes import wintypes
 import winreg
 from pathlib import Path
-from cursor_roles import CURSOR_MAPPING, CURSOR_ROLES, find_cursors
+from cursor_roles import CURSOR_ROLES
 
 
 CURSOR_REGISTRY_PATH = r"Control Panel\Cursors"
@@ -158,22 +158,3 @@ def get_current_cursors():
 
     return cursors
 
-
-if __name__ == "__main__":
-    twilight = find_cursors(
-        Path(__file__).resolve().parent.parent / "packs/twilight_sparkle/cursors"
-    )
-    print(f"Found {len(twilight)}/{len(CURSOR_ROLES)} Twilight cursors.")
-    if set(twilight) != set(CURSOR_ROLES):
-        raise SystemExit("Not all cursor roles were found. Aborting.")
-
-    input("Press Enter to apply Twilight...")
-    original = snapshot_cursors()
-    try:
-        set_cursors(twilight)
-        input("Twilight is applied. Press Enter to restore original cursors...")
-    finally:
-        restore_cursors(original)
-        if snapshot_cursors() != original:
-            raise RuntimeError("Restored cursor registry does not match the original.")
-        print("Original cursor registry restored exactly; Windows reload succeeded.")

@@ -10,3 +10,6 @@ build/
 dist/
 packs/
 .local-pack-backup/
+data/settings.json
+data/tags.json
+data/collections.json

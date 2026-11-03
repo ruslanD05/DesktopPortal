@@ -4,21 +4,17 @@ $Python = Join-Path $Root '.venv\Scripts\python.exe'
 $Output = Join-Path $Root 'dist\DesktopPortal'
 
 & $Python -m PyInstaller --noconfirm --clean (Join-Path $Root 'DesktopPortal.spec')
+if ($LASTEXITCODE) {
+    throw "PyInstaller failed with exit code $LASTEXITCODE"
+}
 
-$Packs = Join-Path $Root 'packs'
-if (Test-Path $Packs) {
-    Copy-Item $Packs (Join-Path $Output 'packs') -Recurse -Force
-} else {
-    New-Item (Join-Path $Output 'packs') -ItemType Directory -Force | Out-Null
-}
+# Releases ship without local packs or data so users start from defaults and
+# personal assets are never redistributed.
+New-Item (Join-Path $Output 'packs') -ItemType Directory -Force | Out-Null
 New-Item (Join-Path $Output 'data') -ItemType Directory -Force | Out-Null
-foreach ($Name in @('settings.json', 'collections.json', 'tags.json')) {
-    $Source = Join-Path $Root "data\$Name"
-    if (Test-Path $Source) {
-        Copy-Item $Source (Join-Path $Output "data\$Name") -Force
-    }
+foreach ($Name in @('README.md', 'LICENSE')) {
+    Copy-Item (Join-Path $Root $Name) (Join-Path $Output $Name) -Force
 }
-Copy-Item (Join-Path $Root 'README.md') (Join-Path $Output 'README.md') -Force
 
 $Archive = Join-Path $Root 'dist\DesktopPortal-Windows.zip'
 if (Test-Path $Archive) {
