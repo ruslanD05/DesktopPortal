@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     'music_volume': 0.5,
     'preview_seconds': 8,
     'cursor_size': None,
+    'original_cursor_size': None,
     'dark_mode': False,
     'setup_complete': False,
     'hotkey_wheel': 'Ctrl+Alt+Space',
@@ -72,11 +73,12 @@ def load_settings():
             if not isinstance(settings[name], (int, float)) or settings[name] < 0:
                 raise ValueError(f'{name} must be a non-negative number.')
             result[name] = settings[name]
-    if 'cursor_size' in settings:
-        value = settings['cursor_size']
-        if value is not None and (not isinstance(value, int) or not 1 <= value <= 15):
-            raise ValueError('cursor_size must be between 1 and 15.')
-        result['cursor_size'] = value
+    for name in ('cursor_size', 'original_cursor_size'):
+        if name in settings:
+            value = settings[name]
+            if value is not None and (not isinstance(value, int) or not 1 <= value <= 15):
+                raise ValueError(f'{name} must be between 1 and 15.')
+            result[name] = value
     for name in ('hotkey_wheel', 'hotkey_next', 'hotkey_previous',
                  'hotkey_random', 'wheel_collection'):
         if name in settings:

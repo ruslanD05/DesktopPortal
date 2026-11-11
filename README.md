@@ -6,6 +6,8 @@ Make themed packs of wallpapers, cursors, sounds and background music, then
 switch between them from the app, a tray menu, global hotkeys or a random
 "theme wheel". An NFC reader is optional: tap a tag to switch packs.
 
+![DesktopPortal main window](docs/screenshot.png)
+
 ## Install (Windows)
 
 1. Download `DesktopPortal-Windows.zip` from the
@@ -16,12 +18,27 @@ switch between them from the app, a tray menu, global hotkeys or a random
 3. Run `DesktopPortal.exe`. The build is unsigned, so Windows SmartScreen may
    warn you; choose **More info** > **Run anyway**.
 
-The app starts with no packs. Create one with **New pack**, then add images,
-cursors and sounds, or import a pack ZIP someone has shared. Only share packs
-whose assets you have the right to redistribute.
+The first launch creates a small **Aurora (sample)** pack so you can try
+**Activate** straight away; delete it whenever you like. Make your own with
+**New pack**, then add images, cursors and sounds, or import a pack ZIP someone
+has shared. Only share packs whose assets you have the right to redistribute.
 
 **Restore desktop** in the tray menu always returns your original wallpaper and
 cursors, and quitting the app does the same.
+
+## Works offline
+
+DesktopPortal never connects to the internet. There are no accounts, no
+telemetry, no update checks and no downloads; packs are plain folders on your
+disk and music must be a local file. The only socket it opens is on
+`127.0.0.1`, used so a second launch can bring the running app to the front.
+
+## Reporting bugs
+
+Open **More > Diagnostics…**, click **Copy for bug report**, and paste the
+result into a new
+[issue](https://github.com/ruslanD05/DesktopPortal/issues/new/choose). The
+report shows the app version, platform, NFC reader state and recent activity.
 
 ## Run from source
 
@@ -47,7 +64,10 @@ your setup to another PC, export packs there and import them, and re-enable
 The build creates `dist\DesktopPortal\DesktopPortal.exe` and a portable
 `dist\DesktopPortal-Windows.zip`. Keep the files inside the application folder
 together so packs and settings remain editable. The same executable runs in
-the background when Windows starts it with `--background`.
+the background when Windows starts it with `--background`. The version shown
+in Diagnostics comes from `version.py`.
+
+## Using DesktopPortal
 
 Select a pack and **Activate**, or choose **Bind tag** and scan within 30 seconds. Binding does not activate the pack; remove and rescan the tag. Unknown tags do nothing. Files selected from anywhere are copied into the pack. Wallpaper and sound selection dialogs let each file be previewed and included or excluded from random rotation. Cursor mappings expose all 15 Windows cursor states, show animated previews, mirror individual cursors horizontally or vertically, and can auto-detect a folder.
 
@@ -57,7 +77,7 @@ The first-run wizard checks the NFC reader and sets the initial restore, startup
 
 Each pack can have looping background music from a local MP3/OGG/WAV file. Background-music volume is separate from activation-sound volume in **Options**.
 
-**Preview** applies a pack temporarily without its sound, then returns to the prior pack. **Options** controls sound volume, cooldown, play-on-change behavior, preview duration and the Windows cursor-size scale. Wallpaper transitions remain instant because native desktop wallpaper APIs do not provide a reliable cross-desktop fade.
+**Preview** applies a pack temporarily without its sound, then returns to the prior pack. **Options** controls sound volume, cooldown, play-on-change behavior, preview duration and the Windows cursor-size scale. A custom cursor size applies while DesktopPortal is running; quitting puts your own size back. Wallpaper transitions remain instant because native desktop wallpaper APIs do not provide a reliable cross-desktop fade.
 
 **Export** creates a versioned ZIP containing the selected pack and its assets. **Import** safely renames a pack when its ID already exists. Collections can be exported as one bundle. **Validate** reports missing files, unsupported formats and cursor roles. **Clean assets** previews and removes files no longer referenced by a pack.
 

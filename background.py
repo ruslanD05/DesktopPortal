@@ -8,10 +8,14 @@ from packs import BASE_DIR
 from startup import migrate_delayed_startup
 
 LOG_FILE = BASE_DIR / 'data/background.log'
+MAX_LOG_BYTES = 256 * 1024
 
 
 def log(message):
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if LOG_FILE.exists() and LOG_FILE.stat().st_size > MAX_LOG_BYTES:
+        lines = LOG_FILE.read_text(encoding='utf-8', errors='replace').splitlines()
+        LOG_FILE.write_text('\n'.join(lines[-200:]) + '\n', encoding='utf-8')
     with LOG_FILE.open('a', encoding='utf-8') as file:
         file.write(f'{datetime.now().isoformat(timespec="seconds")} {message}\n')
 

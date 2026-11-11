@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import subprocess
 
+KDE_CONFIG = 'plasma-org.kde.plasma.desktop-appletsrc'
+
 
 
 def _run(*args):
@@ -27,7 +29,24 @@ def get_wallpaper(kind, desktop):
     if kind == 'gnome':
         value = _run('gsettings', 'get', 'org.gnome.desktop.background', 'picture-uri')
         return value.strip("'").removeprefix('file://')
+    if kind == 'kde':
+        return _kde_wallpaper(Path.home() / '.config' / KDE_CONFIG)
     raise OSError(f'Wallpaper restore is not supported on {desktop}.')
+
+
+def _kde_wallpaper(config):
+    """Return the first desktop image in Plasma's config, or '' if unknown."""
+    try:
+        lines = config.read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError:
+        return ''
+    in_wallpaper = False
+    for line in lines:
+        if line.startswith('['):
+            in_wallpaper = '[Wallpaper]' in line and line.endswith('[General]')
+        elif in_wallpaper and line.startswith('Image='):
+            return line.partition('=')[2].strip().removeprefix('file://')
+    return ''
 
 def set_wallpaper(kind, desktop, value):
     path = Path(value).resolve() if value else None
@@ -39,6 +58,8 @@ def set_wallpaper(kind, desktop, value):
             _run('gsettings', 'set', 'org.gnome.desktop.background', key, uri)
         return
     if kind == 'kde':
-        _run('plasma-apply-wallpaperimage', str(path))
+        # Plasma cannot clear a wallpaper, so an unknown original is left as is.
+        if path:
+            _run('plasma-apply-wallpaperimage', str(path))
         return
     raise OSError(f'Wallpaper changes are not supported on {desktop}.')

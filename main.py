@@ -12,7 +12,7 @@ from tkinter import ttk, messagebox, simpledialog, filedialog
 from PIL import Image, ImageDraw, ImageTk
 
 from desktop import Desktop
-from packs import (PACKS_DIR, load_packs, load_tags, save_tags, create_pack,
+from packs import (BASE_DIR, PACKS_DIR, SETTINGS_FILE, load_packs, load_tags, save_tags, create_pack,
                    write_json, load_settings, save_settings, pack_effects,
                    pack_wallpapers, pack_assets, pack_enabled, load_collections,
                    save_collections, group_packs, DEFAULT_SETTINGS)
@@ -30,6 +30,8 @@ from startup import startup_enabled, set_startup_enabled
 from shutdown_hooks import ShutdownHooks
 from tray import TrayIcon
 from random_wheel import RandomWheel, ALL_PACKS
+from sample_pack import create_sample_pack
+from version import __version__
 
 IPC_HOST = '127.0.0.1'
 IPC_PORT = 45873
@@ -79,7 +81,7 @@ class Portal:
         self.recovery_status = recover_previous_desktop(self.desktop)
         saved_cursor_size = self.settings.get('cursor_size')
         if saved_cursor_size is not None and self.desktop.backend.supports_cursor_size:
-            self.desktop.backend.set_cursor_size(saved_cursor_size)
+            self.apply_cursor_size(saved_cursor_size)
         try:
             self.tags = load_tags()
         except Exception as error:
@@ -480,6 +482,23 @@ class Portal:
         self.desktop.restore()
         self.tag_controlled = False
         self.status.set('Original desktop restored.')
+
+    def apply_cursor_size(self, size):
+        backend = self.desktop.backend
+        if self.settings.get('original_cursor_size') is None:
+            # Remember the user's own size once so quitting can put it back,
+            # including after a crash left the custom size applied.
+            self.settings['original_cursor_size'] = backend.get_cursor_size()
+            save_settings(self.settings)
+        backend.set_cursor_size(size)
+
+    def restore_cursor_size(self):
+        original = self.settings.get('original_cursor_size')
+        if original is None or not self.desktop.backend.supports_cursor_size:
+            return
+        self.desktop.backend.set_cursor_size(original)
+        self.settings['original_cursor_size'] = None
+        save_settings(self.settings)
 
     def save_remove_preference(self):
         self.settings['restore_on_remove'] = self.restore_on_remove.get()
@@ -890,6 +909,7 @@ class Portal:
             return
         try:
             self.desktop.restore()
+            self.restore_cursor_size()
             self.activity.append('Original desktop restored for system shutdown.')
         except Exception as error:
             # Keep the recovery snapshot so the next launch can retry.
@@ -898,6 +918,7 @@ class Portal:
     def quit_app(self, silent=False):
         try:
             self.desktop.restore()
+            self.restore_cursor_size()
         except Exception as error:
             if not silent:
                 messagebox.showerror('Restoration failed', f'{error}\nThe recovery snapshot is preserved. Try Restore desktop again.', parent=self.root)
@@ -1130,7 +1151,7 @@ class OptionsDialog:
             self.portal.settings[f'hotkey_{name}'] = shortcut
         if self.portal.desktop.backend.supports_cursor_size:
             size = max(1, min(15, self.cursor_size.get()))
-            self.portal.desktop.backend.set_cursor_size(size)
+            self.portal.apply_cursor_size(size)
             self.portal.settings['cursor_size'] = size
         self.portal.restore_on_remove.set(self.restore_on_remove.get())
         self.portal.start_with_windows.set(self.start_at_login.get())
@@ -1159,6 +1180,7 @@ class DiagnosticsDialog:
         frame.pack(fill='both', expand=True)
         active = portal.packs.get(portal.desktop.active, {}).get('name', 'Original desktop')
         summary = (
+            f'DesktopPortal {__version__}\n'
             f'Platform: {capability_summary(portal.desktop.backend)}\n'
             f'Active: {active}\n'
             f'NFC: {portal.reader_status.get()}\n'
@@ -1167,12 +1189,23 @@ class DiagnosticsDialog:
         text = tk.Text(frame, wrap='word', font=('Consolas', 10))
         text.pack(fill='both', expand=True)
         text.insert('1.0', summary + '\n'.join(portal.activity))
-        log_file = Path(__file__).resolve().parent / 'data/background.log'
+        log_file = BASE_DIR / 'data/background.log'
         if log_file.is_file():
             lines = log_file.read_text(encoding='utf-8', errors='replace').splitlines()[-25:]
             text.insert('end', '\n\nBackground log:\n' + '\n'.join(lines))
+        report = text.get('1.0', 'end-1c')
         text.configure(state='disabled')
-        ttk.Button(frame, text='Close', command=window.destroy).pack(anchor='e', pady=(10, 0))
+
+        def copy():
+            window.clipboard_clear()
+            window.clipboard_append(report)
+            copy_button.configure(text='Copied')
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill='x', pady=(10, 0))
+        ttk.Button(buttons, text='Close', command=window.destroy).pack(side='right')
+        copy_button = ttk.Button(buttons, text='Copy for bug report', command=copy)
+        copy_button.pack(side='right', padx=(0, 8))
 
 
 class PackEditor:
@@ -1959,6 +1992,14 @@ def main(start_hidden=False, on_ready=None):
         if notify_running_instance(show=not start_hidden):
             return
         raise
+    if not SETTINGS_FILE.exists():
+        # First launch: give new users something to activate straight away.
+        try:
+            PACKS_DIR.mkdir(exist_ok=True)
+            if not any(PACKS_DIR.iterdir()):
+                create_sample_pack()
+        except Exception:
+            pass  # The demo pack is optional; the app works without it.
     try:
         from tkinterdnd2 import TkinterDnD
         root = TkinterDnD.Tk()
