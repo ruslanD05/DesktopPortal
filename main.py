@@ -37,6 +37,17 @@ IPC_HOST = '127.0.0.1'
 IPC_PORT = 45873
 
 
+def fit_window(window, width, height):
+    """Open at the preferred size, grown to fit the content but kept on screen.
+
+    Fixed pixel sizes clip content when Windows display scaling enlarges fonts.
+    """
+    window.update_idletasks()
+    width = min(max(width, window.winfo_reqwidth()), window.winfo_screenwidth() - 40)
+    height = min(max(height, window.winfo_reqheight()), window.winfo_screenheight() - 100)
+    window.geometry(f'{width}x{height}')
+
+
 def recover_previous_desktop(desktop):
     if desktop.original is None:
         return None
@@ -165,8 +176,11 @@ class Portal:
             name: tk.StringVar(value=name.title())
             for name in self.main_effect_vars
         }
-        ttk.Separator(surface).pack(fill='x', pady=(0, 10))
-        effect_bar = ttk.Frame(surface, style='Surface.TFrame')
+        # Packed before the table so a small window shrinks the table, not these.
+        controls = ttk.Frame(surface, style='Surface.TFrame')
+        controls.pack(side='bottom', fill='x', before=self.list)
+        ttk.Separator(controls).pack(fill='x', pady=(0, 10))
+        effect_bar = ttk.Frame(controls, style='Surface.TFrame')
         effect_bar.pack(fill='x')
         self.main_pack_enabled = tk.BooleanVar(value=True)
         ttk.Checkbutton(
@@ -186,7 +200,7 @@ class Portal:
                     lambda: self.toggle_selected_effect(effect)
                 ),
             ).pack(side='left', padx=(0, 18))
-        actions = ttk.Frame(surface, style='Surface.TFrame')
+        actions = ttk.Frame(controls, style='Surface.TFrame')
         actions.pack(fill='x', pady=(14, 0))
         ttk.Button(actions, text='Activate', style='Accent.TButton', command=lambda: self.run(self.activate_selected)).pack(side='left', padx=(0, 7))
         for label, action in [('Preview', self.preview_selected),
@@ -222,7 +236,7 @@ class Portal:
         self.status.trace_add('write', self._record_status)
         self.reader_status = tk.StringVar(value='NFC listener disabled')
         footer = ttk.Frame(frame, style='App.TFrame')
-        footer.pack(fill='x', pady=(14, 0))
+        footer.pack(side='bottom', fill='x', pady=(14, 0), before=surface)
         ttk.Label(footer, textvariable=self.status, style='Status.TLabel', anchor='w').pack(side='left', fill='x', expand=True)
         ttk.Label(footer, textvariable=self.reader_status, style='Status.TLabel', anchor='e').pack(side='right', padx=(8, 0))
         self.reload()
@@ -956,7 +970,7 @@ class SetupWizard:
         self.content = ttk.Frame(self.window, padding=(34, 30))
         self.content.pack(fill='both', expand=True)
         navigation = ttk.Frame(self.window, padding=(22, 12))
-        navigation.pack(fill='x', side='bottom')
+        navigation.pack(fill='x', side='bottom', before=self.content)
         ttk.Button(navigation, text='Skip setup', command=self.skip).pack(side='left')
         self.next_button = ttk.Button(
             navigation, text='Next', style='Accent.TButton', command=self.next
@@ -1134,7 +1148,10 @@ class OptionsDialog:
         ).pack(anchor='w', pady=(4, 0))
         if not portal.hotkeys.supported:
             ttk.Label(shortcuts, text='Global hotkeys are currently available on Windows.').pack(anchor='w', pady=(10, 0))
-        ttk.Button(frame, text='Save', command=lambda: portal.run(self.save)).pack(fill='x', pady=(14, 0))
+        ttk.Button(frame, text='Save', command=lambda: portal.run(self.save)).pack(
+            side='bottom', fill='x', pady=(14, 0), before=notebook
+        )
+        fit_window(self.window, 520, 620)
 
     def save(self):
         self.portal.settings.update(
@@ -1202,7 +1219,7 @@ class DiagnosticsDialog:
             copy_button.configure(text='Copied')
 
         buttons = ttk.Frame(frame)
-        buttons.pack(fill='x', pady=(10, 0))
+        buttons.pack(side='bottom', fill='x', pady=(10, 0), before=text)
         ttk.Button(buttons, text='Close', command=window.destroy).pack(side='right')
         copy_button = ttk.Button(buttons, text='Copy for bug report', command=copy)
         copy_button.pack(side='right', padx=(0, 8))
@@ -1233,6 +1250,11 @@ class PackEditor:
         self.window.grab_set()
         frame = ttk.Frame(self.window, padding=24)
         frame.pack(fill='both', expand=True)
+        ttk.Button(
+            frame,
+            text='Save pack',
+            command=lambda: portal.run(self.save),
+        ).pack(side='bottom', fill='x', pady=(12, 0))
         ttk.Label(frame, text='Pack name').pack(anchor='w')
         self.name = tk.StringVar(value=self.pack['name'])
         ttk.Entry(frame, textvariable=self.name).pack(fill='x', pady=(4, 14))
@@ -1294,12 +1316,8 @@ class PackEditor:
             frame,
             text='One wallpaper is chosen randomly each time the pack activates.',
         ).pack(anchor='w', pady=(10, 4))
-        ttk.Button(
-            frame,
-            text='Save pack',
-            command=lambda: portal.run(self.save),
-        ).pack(fill='x', pady=(12, 0))
         self.update_info()
+        fit_window(self.window, 760, 690)
 
     def update_info(self):
         wallpaper_count = len(pack_assets(self.pack, 'wallpapers', True))
@@ -1517,7 +1535,9 @@ class AssetRotationEditor:
             self.image_label.pack(fill='x', pady=(12, 0))
 
         actions = ttk.Frame(outer)
-        actions.pack(fill='x', pady=(12, 0))
+        actions.pack(side='bottom', fill='x', pady=(12, 0), before=body)
+        if self.image_label is not None:
+            self.image_label.pack_configure(side='bottom', before=body)
         ttk.Button(actions, text='Enable all', command=lambda: self.set_all(True)).pack(side='left')
         ttk.Button(actions, text='Disable all', command=lambda: self.set_all(False)).pack(side='left', padx=6)
         if category == 'sounds':
@@ -1821,7 +1841,7 @@ class CollectionManager:
         self.list.bind('<Double-1>', lambda event: portal.run(self.edit_members))
 
         actions = ttk.Frame(frame)
-        actions.pack(fill='x', pady=(12, 0))
+        actions.pack(side='bottom', fill='x', pady=(12, 0), before=self.list)
         for label, action in [
             ('New', self.new),
             ('Edit members', self.edit_members),
@@ -1945,7 +1965,7 @@ class CollectionMembers:
             if pack_id in members:
                 self.list.selection_set(index)
         ttk.Button(frame, text='Save members', command=self.save).pack(
-            fill='x', pady=(12, 0)
+            side='bottom', fill='x', pady=(12, 0), before=self.list
         )
 
     def save(self):

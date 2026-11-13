@@ -63,7 +63,7 @@ class RandomWheel:
         ttk.Label(
             frame,
             text='Only enabled packs participate. The selected pack activates automatically.',
-        ).pack(anchor='w', pady=(10, 0))
+        ).pack(side='bottom', anchor='w', pady=(10, 0), before=self.canvas)
         self.sequence = []
         self.offset = 0
 
