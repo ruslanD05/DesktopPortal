@@ -10,18 +10,20 @@ switch between them from the app, a tray menu, global hotkeys or a random
 
 ## Install (Windows)
 
-1. Download `DesktopPortal-Windows.zip` from the
+1. Download `DesktopPortal.exe` from the
    [Releases](https://github.com/ruslanD05/DesktopPortal/releases) page.
-2. Extract the whole ZIP to a folder you own, such as
-   `Documents\DesktopPortal`. The app keeps its packs and settings next to the
-   executable, so do not run it from inside the ZIP and do not extract it into
+2. Put it in a folder of its own that you can write to, such as
+   `Documents\DesktopPortal`. The app creates its `packs` and `data` folders
+   next to the executable, so do not keep it on the Desktop or in
    `Program Files`.
 3. Run `DesktopPortal.exe`. The build is unsigned, so Windows SmartScreen may
-   warn you; choose **More info** > **Run anyway**.
+   warn you; choose **More info** > **Run anyway**. The first start takes a
+   few seconds.
 
-There is no installer and nothing is written outside that folder, apart from
-the optional login task described under [Options](#options). To update, extract
-a newer release over the same folder; your `packs` and `data` folders are kept.
+There is no installer, no Python to install and nothing to extract. Nothing is
+written outside that folder, apart from the optional login task described under
+[Options](#options). To update, quit the app and replace `DesktopPortal.exe`
+with the newer one; your `packs` and `data` folders are kept.
 
 **Uninstall:** turn off **Start DesktopPortal at login** in **Options**, choose
 **More > Quit DesktopPortal** (this puts your original wallpaper and cursors
@@ -141,10 +143,9 @@ your setup to another PC, export packs there and import them, and re-enable
 .\build_release.ps1
 ```
 
-The build creates `dist\DesktopPortal\DesktopPortal.exe` and a portable
-`dist\DesktopPortal-Windows.zip`. Keep the files inside the application folder
-together so packs and settings remain editable. The same executable runs in
-the background when Windows starts it with `--background`. The version shown
+The build creates a single self-contained `dist\DesktopPortal.exe`; that one
+file is the release. It contains no packs or settings. The same executable runs
+in the background when Windows starts it with `--background`. The version shown
 in Diagnostics comes from `version.py`.
 
 ## Using DesktopPortal
