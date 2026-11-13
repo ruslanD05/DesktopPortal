@@ -12,19 +12,99 @@ switch between them from the app, a tray menu, global hotkeys or a random
 
 1. Download `DesktopPortal-Windows.zip` from the
    [Releases](https://github.com/ruslanD05/DesktopPortal/releases) page.
-2. Extract it to a folder you own, such as `Documents\DesktopPortal`. The app
-   keeps its packs and settings next to the executable, so do not extract it
-   into `Program Files`.
+2. Extract the whole ZIP to a folder you own, such as
+   `Documents\DesktopPortal`. The app keeps its packs and settings next to the
+   executable, so do not run it from inside the ZIP and do not extract it into
+   `Program Files`.
 3. Run `DesktopPortal.exe`. The build is unsigned, so Windows SmartScreen may
    warn you; choose **More info** > **Run anyway**.
 
-The first launch creates a small **Aurora (sample)** pack so you can try
-**Activate** straight away; delete it whenever you like. Make your own with
-**New pack**, then add images, cursors and sounds, or import a pack ZIP someone
-has shared. Only share packs whose assets you have the right to redistribute.
+There is no installer and nothing is written outside that folder, apart from
+the optional login task described under [Options](#options). To update, extract
+a newer release over the same folder; your `packs` and `data` folders are kept.
 
-**Restore desktop** in the tray menu always returns your original wallpaper and
-cursors, and quitting the app does the same.
+**Uninstall:** turn off **Start DesktopPortal at login** in **Options**, choose
+**More > Quit DesktopPortal** (this puts your original wallpaper and cursors
+back), then delete the folder.
+
+## First-time setup
+
+The first launch opens a three-step wizard. You can skip it; everything in it
+can be changed later in **Options**.
+
+1. **Welcome** explains what packs are.
+2. **NFC reader** shows whether a reader was found. A reader is optional: every
+   feature also works from the window, the tray menu and hotkeys.
+3. **Choose your defaults** has three checkboxes, all off to begin with:
+   - **Restore the original desktop when the last figurine is removed**
+   - **Start DesktopPortal at login**
+   - **Use dark theme**
+
+The first launch also creates a small **Aurora (sample)** pack so you can try
+the app straight away; delete it whenever you like.
+
+## Quick start
+
+1. Select **Aurora (sample)** and click **Activate**. Your wallpaper and
+   cursors change and a chime plays.
+2. Click **More > Restore original desktop** to go back. Quitting the app does
+   the same.
+3. Click **New pack**, give it a name and an ID, then **Edit pack** to add
+   wallpapers, cursors, sounds and music. You can drag files or folders onto
+   the drop area. Files are copied into the pack.
+4. With an NFC reader: select a pack, click **Bind tag** and place a tag or
+   figurine on the reader within 30 seconds. Binding does not activate the
+   pack. Lift the tag and place it again to activate it.
+
+Closing the window with **X** only hides it; DesktopPortal keeps running in the
+tray so tags and hotkeys still work. Use **More > Quit DesktopPortal** to exit.
+
+To share packs, use **More > Export selected…** and **Import**. Only share
+packs whose assets you have the right to redistribute.
+
+## Options
+
+Open **Options** at the top right of the main window. Changes apply when you
+click **Save**.
+
+### General
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| Activation sound volume | 80% | Volume of the sound played when a pack activates. |
+| Background music volume | 50% | Volume of a pack's looping music. |
+| Sound cooldown (seconds) | 1.0 | Minimum time between two activation sounds. |
+| Play sound only when the active pack changes | On | Skips the sound when the pack that is already active is activated again. |
+| Preview duration (seconds) | 8 | How long **Preview** shows a pack before returning to the previous one. |
+| Cursor size (1–15) | Your Windows size | Pointer size while DesktopPortal is running. Quitting puts your own size back. |
+| Restore the original desktop when the last figurine is removed | Off | See below. |
+| Start DesktopPortal at login | Off | Starts the app hidden in the tray when you sign in to Windows. |
+| Use dark theme | Off | Dark colors for the DesktopPortal windows. |
+
+**Figurine removal.** By default a pack stays active after you lift its
+figurine from the reader, so you can take the figurine away and keep the theme.
+Turn on **Restore the original desktop when the last figurine is removed** to
+make the theme disappear instead: your own wallpaper and cursors come back as
+soon as no bound tag is left on a reader. With two readers, removing one
+figurine switches to the pack of the figurine that is still present, whichever
+way this option is set. Packs activated by hand, hotkey or the wheel are not
+affected by removing a tag.
+
+**Start at login** registers a Windows Task Scheduler task for your user that
+points at the current location of the app. If you move the folder, turn the
+option off and on again.
+
+### Hotkeys
+
+Global shortcuts work while the app is running, even when its window is hidden.
+Use the form `Ctrl+Alt+Space`; clear a field to disable that shortcut.
+
+| Action | Default |
+| --- | --- |
+| Open random wheel | `Ctrl+Alt+Space` |
+| Next enabled pack | `Ctrl+Alt+Right` |
+| Previous enabled pack | `Ctrl+Alt+Left` |
+| Activate random pack | `Ctrl+Alt+R` |
 
 ## Works offline
 
@@ -71,7 +151,7 @@ in Diagnostics comes from `version.py`.
 
 Select a pack and **Activate**, or choose **Bind tag** and scan within 30 seconds. Binding does not activate the pack; remove and rescan the tag. Unknown tags do nothing. Files selected from anywhere are copied into the pack. Wallpaper and sound selection dialogs let each file be previewed and included or excluded from random rotation. Cursor mappings expose all 15 Windows cursor states, show animated previews, mirror individual cursors horizontally or vertically, and can auto-detect a folder.
 
-The first-run wizard checks the NFC reader and sets the initial restore, startup and theme preferences. The pack list supports live name/ID search plus enabled/disabled filtering. Enable the dark theme in **Options**. In the pack editor, drag files or folders onto the drop area to import supported images, audio and recognizable cursor files.
+The pack list supports live name/ID search plus enabled/disabled filtering. Enable the dark theme in **Options**. In the pack editor, drag files or folders onto the drop area to import supported images, audio and recognizable cursor files.
 
 **Random wheel** opens a CS-style animated picker. It can use every enabled pack or only the enabled packs in one collection, remembers that collection, and activates the winner. The tray menu and configurable Windows global hotkeys can open the wheel or switch to the next, previous, or a random pack without NFC.
 

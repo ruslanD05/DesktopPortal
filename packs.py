@@ -15,7 +15,7 @@ SETTINGS_FILE = BASE_DIR / 'data/settings.json'
 COLLECTIONS_FILE = BASE_DIR / 'data/collections.json'
 PACK_FORMAT_VERSION = 1
 DEFAULT_SETTINGS = {
-    'restore_on_remove': True,
+    'restore_on_remove': False,
     'start_with_windows': False,
     'sound_volume': 0.8,
     'sound_cooldown': 1.0,
